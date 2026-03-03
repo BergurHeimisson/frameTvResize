@@ -1,0 +1,2 @@
+Pillow>=10.0.0
+exiftool>=0.4.0  # Optional: For RAW image format support
