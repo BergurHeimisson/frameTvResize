@@ -16,6 +16,25 @@
     <name>Frame TV Resizer UI</name>
     <description>Java GUI front-end for Samsung Pro Frame TV Image Resizer</description>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <version>1.6.2</version>
+        </dependency>
+        <!-- FlatLaf themes (includes flatlaf core) -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-intellij-themes</artifactId>
+            <version>3.7</version>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.7</version>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
