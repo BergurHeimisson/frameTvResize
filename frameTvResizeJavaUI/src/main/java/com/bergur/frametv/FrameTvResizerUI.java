@@ -40,6 +40,10 @@ public class FrameTvResizerUI extends JFrame {
     private JTextArea logArea;
     private JScrollPane scrollPane;
     private JProgressBar progressBar;
+    private JSlider brightnessSlider;
+    private JLabel brightnessValueLabel;
+    private JComboBox<String> borderColorCombo;
+    private JSpinner borderThicknessSpinner;
 
     private File selectedImage;
     private volatile File lastOutputFile;
@@ -75,7 +79,7 @@ public class FrameTvResizerUI extends JFrame {
     public FrameTvResizerUI() {
         setTitle("Samsung Pro Frame TV Image Resizer");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 780);
+        setSize(800, 920);
         setLocationRelativeTo(null);
         setResizable(true);
         setIconImage(createAppIcon());
@@ -127,6 +131,27 @@ public class FrameTvResizerUI extends JFrame {
         gmailSettingsButton.setFont(new Font("Arial", Font.PLAIN, 12));
         gmailSettingsButton.addActionListener(e -> showCredentialsDialog(true));
 
+        brightnessSlider = new JSlider(-100, 100, 0);
+        brightnessSlider.setMajorTickSpacing(50);
+        brightnessSlider.setMinorTickSpacing(10);
+        brightnessSlider.setPaintTicks(true);
+        brightnessSlider.setPreferredSize(new Dimension(220, 40));
+        brightnessValueLabel = new JLabel("+0%");
+        brightnessValueLabel.setPreferredSize(new Dimension(45, 20));
+        brightnessSlider.addChangeListener(e -> {
+            int val = brightnessSlider.getValue();
+            brightnessValueLabel.setText((val >= 0 ? "+" : "") + val + "%");
+        });
+
+        borderColorCombo = new JComboBox<>(new String[]{"None", "Black", "White"});
+        borderColorCombo.setFont(new Font("Arial", Font.PLAIN, 12));
+        borderThicknessSpinner = new JSpinner(new SpinnerNumberModel(50, 1, 500, 1));
+        borderThicknessSpinner.setPreferredSize(new Dimension(70, borderThicknessSpinner.getPreferredSize().height));
+        borderThicknessSpinner.setEnabled(false);
+        borderColorCombo.addActionListener(e ->
+            borderThicknessSpinner.setEnabled(!"None".equals(borderColorCombo.getSelectedItem()))
+        );
+
         logArea = new JTextArea();
         logArea.setEditable(false);
         logArea.setFont(new Font("Monaco", Font.PLAIN, 10));
@@ -171,11 +196,29 @@ public class FrameTvResizerUI extends JFrame {
         mainPanel.add(Box.createVerticalStrut(15));
 
         // Options section
-        JPanel optionsPanel = createLabeledPanel("Options");
-        JPanel optionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 10));
-        optionsRow.add(new JLabel("Background Color:"));
-        optionsRow.add(fillColorCombo);
-        optionsPanel.add(optionsRow);
+        JPanel optionsPanel = new JPanel();
+        optionsPanel.setLayout(new BoxLayout(optionsPanel, BoxLayout.Y_AXIS));
+        optionsPanel.setBorder(BorderFactory.createTitledBorder("Options"));
+
+        JPanel bgColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        bgColorRow.add(new JLabel("Background Color:"));
+        bgColorRow.add(fillColorCombo);
+        optionsPanel.add(bgColorRow);
+
+        JPanel brightnessRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        brightnessRow.add(new JLabel("Brightness:"));
+        brightnessRow.add(brightnessSlider);
+        brightnessRow.add(brightnessValueLabel);
+        optionsPanel.add(brightnessRow);
+
+        JPanel borderRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        borderRow.add(new JLabel("Border:"));
+        borderRow.add(borderColorCombo);
+        borderRow.add(new JLabel("Thickness:"));
+        borderRow.add(borderThicknessSpinner);
+        borderRow.add(new JLabel("px"));
+        optionsPanel.add(borderRow);
+
         mainPanel.add(optionsPanel);
         mainPanel.add(Box.createVerticalStrut(15));
 
@@ -274,6 +317,9 @@ public class FrameTvResizerUI extends JFrame {
                     String pythonScript = getPythonScriptPath();
                     String outputPath = outputPathField.getText().isEmpty() ? null : outputPathField.getText();
                     String fillColor = (String) fillColorCombo.getSelectedItem();
+                    int brightnessVal = brightnessSlider.getValue();
+                    String borderColor = (String) borderColorCombo.getSelectedItem();
+                    int borderThickness = (Integer) borderThicknessSpinner.getValue();
 
                     ProcessBuilder pb = new ProcessBuilder(
                         "/opt/homebrew/bin/pyenv", "exec", "python", pythonScript,
@@ -288,6 +334,19 @@ public class FrameTvResizerUI extends JFrame {
                     if (!"black".equals(fillColor)) {
                         pb.command().add("--fill");
                         pb.command().add(fillColor);
+                    }
+
+                    if (brightnessVal != 0) {
+                        double factor = 1.0 + brightnessVal / 100.0;
+                        pb.command().add("--brightness");
+                        pb.command().add(String.format(java.util.Locale.US, "%.2f", factor));
+                    }
+
+                    if (!"None".equals(borderColor) && borderThickness > 0) {
+                        pb.command().add("--border-color");
+                        pb.command().add(borderColor.toLowerCase());
+                        pb.command().add("--border-thickness");
+                        pb.command().add(String.valueOf(borderThickness));
                     }
 
                     pb.directory(new File(getPythonScriptDir()));
@@ -477,6 +536,11 @@ public class FrameTvResizerUI extends JFrame {
         inputPathField.setText("");
         outputPathField.setText("");
         fillColorCombo.setSelectedItem("black");
+        brightnessSlider.setValue(0);
+        brightnessValueLabel.setText("+0%");
+        borderColorCombo.setSelectedItem("None");
+        borderThicknessSpinner.setValue(50);
+        borderThicknessSpinner.setEnabled(false);
         logArea.setText("");
         statusLabel.setText("Ready to resize images");
         resizeButton.setEnabled(false);
@@ -488,9 +552,15 @@ public class FrameTvResizerUI extends JFrame {
     }
 
     private String getPythonScriptPath() {
-        Path currentDir = Paths.get(System.getProperty("user.dir"));
-        Path scriptPath = currentDir.resolve(PYTHON_SCRIPT_PATH).toAbsolutePath();
-        return scriptPath.toString();
+        try {
+            // Resolve relative to the JAR file's location (target/), not user.dir
+            java.net.URL url = FrameTvResizerUI.class.getProtectionDomain().getCodeSource().getLocation();
+            Path jarDir = Paths.get(url.toURI()).getParent(); // .../target/
+            return jarDir.resolve("../../frame_resize.py").normalize().toAbsolutePath().toString();
+        } catch (Exception e) {
+            // Fallback: user.dir relative
+            return Paths.get(System.getProperty("user.dir")).resolve(PYTHON_SCRIPT_PATH).toAbsolutePath().toString();
+        }
     }
 
     private String getPythonScriptDir() {

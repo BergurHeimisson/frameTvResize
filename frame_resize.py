@@ -9,21 +9,26 @@ import sys
 import subprocess
 import tempfile
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageDraw
 
 
-def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: str = "black") -> str:
+def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: str = "black",
+                         brightness: float = 1.0, border_color: str = None,
+                         border_thickness: int = 0) -> str:
     """
     Resize image to Samsung Pro Frame TV dimensions (3840x2160).
-    
+
     Args:
         input_path: Path to the input image
         output_path: Path to save the resized image (optional, auto-generated if not provided)
         fill_color: Background fill color if scaling with letterbox/pillarbox (default: "black")
-        
+        brightness: Brightness/exposure factor; 1.0=original, <1=darker, >1=brighter (default: 1.0)
+        border_color: Color of frame border drawn around the image ("black" or "white", default: None)
+        border_thickness: Thickness of the border in pixels (default: 0)
+
     Returns:
         Path to the output file
-        
+
     Raises:
         FileNotFoundError: If input file doesn't exist
         ValueError: If file is not a valid image
@@ -110,7 +115,12 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     
     # Resize image with high quality
     resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-    
+
+    # Apply brightness/exposure adjustment
+    if brightness != 1.0:
+        enhancer = ImageEnhance.Brightness(resized_img)
+        resized_img = enhancer.enhance(max(0.0, brightness))
+
     # Create final image with padding if needed
     final_img = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), fill_color)
     
@@ -120,7 +130,16 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     
     # Paste the resized image onto the final image
     final_img.paste(resized_img, (x_offset, y_offset))
-    
+
+    # Draw frame border around the image if specified
+    if border_color and border_thickness > 0:
+        draw = ImageDraw.Draw(final_img)
+        draw.rectangle(
+            [x_offset, y_offset, x_offset + new_width - 1, y_offset + new_height - 1],
+            outline=border_color,
+            width=border_thickness
+        )
+
     # Determine output path
     if output_path is None:
         output_path = input_file.stem + "_frame_3840x2160.jpg"
@@ -133,6 +152,10 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     print(f"✓ Image successfully resized!")
     print(f"  Original: {orig_width}x{orig_height}")
     print(f"  Output: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+    if brightness != 1.0:
+        print(f"  Brightness: {brightness:.2f}x")
+    if border_color and border_thickness > 0:
+        print(f"  Border: {border_color} ({border_thickness}px)")
     print(f"  Saved to: {output_file.absolute()}")
     
     return str(output_file)
@@ -168,11 +191,35 @@ Examples:
         default="black",
         help="Background fill color for padding (default: black)"
     )
-    
+
+    parser.add_argument(
+        "--brightness",
+        type=float,
+        default=1.0,
+        metavar="FACTOR",
+        help="Brightness/exposure factor: 1.0=original, 0.5=darker, 2.0=brighter (default: 1.0)"
+    )
+
+    parser.add_argument(
+        "--border-color",
+        choices=["black", "white"],
+        default=None,
+        help="Frame border color drawn around the image edge"
+    )
+
+    parser.add_argument(
+        "--border-thickness",
+        type=int,
+        default=0,
+        metavar="PX",
+        help="Border thickness in pixels (default: 0)"
+    )
+
     args = parser.parse_args()
-    
+
     try:
-        resize_for_frame_tv(args.image, args.output, args.fill)
+        resize_for_frame_tv(args.image, args.output, args.fill,
+                            args.brightness, args.border_color, args.border_thickness)
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
