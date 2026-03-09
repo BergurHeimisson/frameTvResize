@@ -104,15 +104,28 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     orig_ratio = orig_width / orig_height
     
     # Determine resize strategy
-    if orig_ratio > TARGET_RATIO:
-        # Image is wider than target ratio - fit to height
-        new_height = TARGET_HEIGHT
-        new_width = int(TARGET_HEIGHT * orig_ratio)
+    if border_color and border_thickness > 0:
+        # Reserve space for the border on all sides, then fit-within so the full
+        # image is visible with a uniform border_thickness gap on every edge.
+        avail_width = TARGET_WIDTH - 2 * border_thickness
+        avail_height = TARGET_HEIGHT - 2 * border_thickness
+        avail_ratio = avail_width / avail_height
+        if orig_ratio > avail_ratio:
+            new_width = avail_width
+            new_height = int(avail_width / orig_ratio)
+        else:
+            new_height = avail_height
+            new_width = int(avail_height * orig_ratio)
     else:
-        # Image is taller than target ratio - fit to width
-        new_width = TARGET_WIDTH
-        new_height = int(TARGET_WIDTH / orig_ratio)
-    
+        if orig_ratio > TARGET_RATIO:
+            # Image is wider than target ratio - fit to height
+            new_height = TARGET_HEIGHT
+            new_width = int(TARGET_HEIGHT * orig_ratio)
+        else:
+            # Image is taller than target ratio - fit to width
+            new_width = TARGET_WIDTH
+            new_height = int(TARGET_WIDTH / orig_ratio)
+
     # Resize image with high quality
     resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
@@ -123,22 +136,24 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
 
     # Create final image with padding if needed
     final_img = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), fill_color)
-    
+
     # Calculate position to center the resized image
     x_offset = (TARGET_WIDTH - new_width) // 2
     y_offset = (TARGET_HEIGHT - new_height) // 2
-    
-    # Paste the resized image onto the final image
-    final_img.paste(resized_img, (x_offset, y_offset))
 
-    # Draw frame border around the image if specified
+    # Draw border as a filled rectangle before pasting the image so the border
+    # sits between the fill area and the image on all four sides uniformly.
     if border_color and border_thickness > 0:
         draw = ImageDraw.Draw(final_img)
         draw.rectangle(
-            [x_offset, y_offset, x_offset + new_width - 1, y_offset + new_height - 1],
-            outline=border_color,
-            width=border_thickness
+            [x_offset - border_thickness, y_offset - border_thickness,
+             x_offset + new_width + border_thickness - 1,
+             y_offset + new_height + border_thickness - 1],
+            fill=border_color
         )
+
+    # Paste the resized image onto the final image
+    final_img.paste(resized_img, (x_offset, y_offset))
 
     # Determine output path
     if output_path is None:
