@@ -14,7 +14,7 @@ from PIL import Image, ImageEnhance, ImageDraw
 
 def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: str = "black",
                          brightness: float = 1.0, border_color: str = None,
-                         border_thickness: int = 0) -> str:
+                         border_thickness: int = 0, mode: str = "contain") -> str:
     """
     Resize image to Samsung Pro Frame TV dimensions (3840x2160).
 
@@ -104,45 +104,64 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     orig_ratio = orig_width / orig_height
     
     # Determine resize strategy
-    if border_color and border_thickness > 0:
-        # Reserve space for the border on all sides, then fit-within so the full
-        # image is visible with a uniform border_thickness gap on every edge.
-        avail_width = TARGET_WIDTH - 2 * border_thickness
-        avail_height = TARGET_HEIGHT - 2 * border_thickness
-        avail_ratio = avail_width / avail_height
-        if orig_ratio > avail_ratio:
-            new_width = avail_width
-            new_height = int(avail_width / orig_ratio)
-        else:
-            new_height = avail_height
-            new_width = int(avail_height * orig_ratio)
-    else:
+    if mode == "cover":
+        # Scale so image covers the full canvas, then center-crop (no padding)
         if orig_ratio > TARGET_RATIO:
-            # Image is wider than target ratio - fit to height
+            # Image is wider — fit height, crop sides
             new_height = TARGET_HEIGHT
             new_width = int(TARGET_HEIGHT * orig_ratio)
         else:
-            # Image is taller than target ratio - fit to width
+            # Image is taller — fit width, crop top/bottom
             new_width = TARGET_WIDTH
             new_height = int(TARGET_WIDTH / orig_ratio)
 
-    # Resize image with high quality
-    resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    # Apply brightness/exposure adjustment
-    if brightness != 1.0:
-        enhancer = ImageEnhance.Brightness(resized_img)
-        resized_img = enhancer.enhance(max(0.0, brightness))
+        # Apply brightness/exposure adjustment
+        if brightness != 1.0:
+            enhancer = ImageEnhance.Brightness(resized_img)
+            resized_img = enhancer.enhance(max(0.0, brightness))
 
-    # Create final image with padding if needed
-    final_img = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), fill_color)
+        # Center-crop to target dimensions
+        x_offset = (new_width - TARGET_WIDTH) // 2
+        y_offset = (new_height - TARGET_HEIGHT) // 2
+        final_img = resized_img.crop((x_offset, y_offset, x_offset + TARGET_WIDTH, y_offset + TARGET_HEIGHT))
+    else:
+        # contain mode: fit within canvas, pad edges with fill_color
+        if border_color and border_thickness > 0:
+            # Reserve space for the border on all sides, then fit-within so the full
+            # image is visible with a uniform border_thickness gap on every edge.
+            avail_width = TARGET_WIDTH - 2 * border_thickness
+            avail_height = TARGET_HEIGHT - 2 * border_thickness
+            avail_ratio = avail_width / avail_height
+            if orig_ratio > avail_ratio:
+                new_width = avail_width
+                new_height = int(avail_width / orig_ratio)
+            else:
+                new_height = avail_height
+                new_width = int(avail_height * orig_ratio)
+        else:
+            if orig_ratio > TARGET_RATIO:
+                # Image is wider than target ratio - fit to width, pad top/bottom
+                new_width = TARGET_WIDTH
+                new_height = int(TARGET_WIDTH / orig_ratio)
+            else:
+                # Image is taller than target ratio - fit to height, pad left/right
+                new_height = TARGET_HEIGHT
+                new_width = int(TARGET_HEIGHT * orig_ratio)
 
-    # Calculate position to center the resized image
-    x_offset = (TARGET_WIDTH - new_width) // 2
-    y_offset = (TARGET_HEIGHT - new_height) // 2
+        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    # Paste the resized image onto the final image
-    final_img.paste(resized_img, (x_offset, y_offset))
+        # Apply brightness/exposure adjustment
+        if brightness != 1.0:
+            enhancer = ImageEnhance.Brightness(resized_img)
+            resized_img = enhancer.enhance(max(0.0, brightness))
+
+        # Create final image with padding
+        final_img = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), fill_color)
+        x_offset = (TARGET_WIDTH - new_width) // 2
+        y_offset = (TARGET_HEIGHT - new_height) // 2
+        final_img.paste(resized_img, (x_offset, y_offset))
 
     # Draw border as four edge strips at fixed canvas positions so it always
     # sits at the canvas boundary regardless of image aspect ratio.
@@ -167,6 +186,7 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     print(f"✓ Image successfully resized!")
     print(f"  Original: {orig_width}x{orig_height}")
     print(f"  Output: {TARGET_WIDTH}x{TARGET_HEIGHT}")
+    print(f"  Mode: {mode}")
     if brightness != 1.0:
         print(f"  Brightness: {brightness:.2f}x")
     if border_color and border_thickness > 0:
@@ -228,11 +248,18 @@ Examples:
         help="Border thickness in pixels (default: 0)"
     )
 
+    parser.add_argument(
+        "--mode",
+        choices=["contain", "cover"],
+        default="contain",
+        help="Scaling mode: 'contain' fits image within frame with padding (default), 'cover' crops image to fill frame"
+    )
+
     args = parser.parse_args()
 
     try:
         resize_for_frame_tv(args.image, args.output, args.fill,
-                            args.brightness, args.border_color, args.border_thickness)
+                            args.brightness, args.border_color, args.border_thickness, args.mode)
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

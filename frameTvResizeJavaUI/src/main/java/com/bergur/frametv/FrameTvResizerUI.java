@@ -32,6 +32,8 @@ public class FrameTvResizerUI extends JFrame {
     private JTextField outputPathField;
     private JTextField recipientEmailField;
     private JComboBox<String> fillColorCombo;
+    private JComboBox<String> scalingModeCombo;
+    private JPanel bgColorRow;
     private JCheckBox borderEnabledCheck;
     private JButton borderColorPickerButton;
     private Color selectedBorderColor = Color.WHITE;
@@ -108,6 +110,10 @@ public class FrameTvResizerUI extends JFrame {
         recipientEmailField = new JTextField(prefs.get(PREF_RECIPIENT_EMAIL, ""));
         recipientEmailField.setFont(new Font("Monaco", Font.PLAIN, 12));
         recipientEmailField.setToolTipText("Email address to send the resized image to");
+
+        scalingModeCombo = new JComboBox<>(new String[]{"Cover (crop to fill)", "Contain (letterbox)"});
+        scalingModeCombo.setFont(new Font("Arial", Font.PLAIN, 12));
+        scalingModeCombo.setSelectedIndex(0);
 
         fillColorCombo = new JComboBox<>(new String[]{"black", "white", "gray"});
         fillColorCombo.setFont(new Font("Arial", Font.PLAIN, 12));
@@ -218,10 +224,21 @@ public class FrameTvResizerUI extends JFrame {
         optionsPanel.setLayout(new BoxLayout(optionsPanel, BoxLayout.Y_AXIS));
         optionsPanel.setBorder(BorderFactory.createTitledBorder("Options"));
 
-        JPanel bgColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        JPanel scalingModeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        scalingModeRow.add(new JLabel("Scaling:"));
+        scalingModeRow.add(scalingModeCombo);
+        optionsPanel.add(scalingModeRow);
+
+        bgColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         bgColorRow.add(new JLabel("Background Color:"));
         bgColorRow.add(fillColorCombo);
         optionsPanel.add(bgColorRow);
+
+        bgColorRow.setVisible(false); // Cover is the default
+        scalingModeCombo.addActionListener(e -> {
+            boolean isCover = scalingModeCombo.getSelectedIndex() == 0;
+            bgColorRow.setVisible(!isCover);
+        });
 
         JPanel brightnessRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         brightnessRow.add(new JLabel("Brightness:"));
@@ -334,6 +351,7 @@ public class FrameTvResizerUI extends JFrame {
 
                     String pythonScript = getPythonScriptPath();
                     String outputPath = outputPathField.getText().isEmpty() ? null : outputPathField.getText();
+                    boolean isCover = scalingModeCombo.getSelectedIndex() == 0;
                     String fillColor = (String) fillColorCombo.getSelectedItem();
                     int brightnessVal = brightnessSlider.getValue();
                     boolean borderEnabled = borderEnabledCheck.isSelected();
@@ -353,8 +371,13 @@ public class FrameTvResizerUI extends JFrame {
                         pb.command().add(outputPath);
                     }
 
-                    pb.command().add("--fill");
-                    pb.command().add(fillColor);
+                    pb.command().add("--mode");
+                    pb.command().add(isCover ? "cover" : "contain");
+
+                    if (!isCover) {
+                        pb.command().add("--fill");
+                        pb.command().add(fillColor);
+                    }
 
                     if (brightnessVal != 0) {
                         double factor = 1.0 + brightnessVal / 100.0;
