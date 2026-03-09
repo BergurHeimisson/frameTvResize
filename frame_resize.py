@@ -201,9 +201,8 @@ Examples:
 
     parser.add_argument(
         "--border-color",
-        choices=["black", "white"],
         default=None,
-        help="Frame border color drawn around the image edge"
+        help="Frame border color drawn around the image edge. Accepts color names (black, white) or hex values (#RRGGBB)"
     )
 
     parser.add_argument(

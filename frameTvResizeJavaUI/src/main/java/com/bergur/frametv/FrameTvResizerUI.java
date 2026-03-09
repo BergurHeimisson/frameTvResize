@@ -31,8 +31,10 @@ public class FrameTvResizerUI extends JFrame {
     private JTextField inputPathField;
     private JTextField outputPathField;
     private JTextField recipientEmailField;
-    private JButton colorPickerButton;
-    private Color selectedFillColor = Color.BLACK;
+    private JComboBox<String> fillColorCombo;
+    private JCheckBox borderEnabledCheck;
+    private JButton borderColorPickerButton;
+    private Color selectedBorderColor = Color.WHITE;
     private JLabel statusLabel;
     private JButton selectButton;
     private JButton resizeButton;
@@ -43,7 +45,6 @@ public class FrameTvResizerUI extends JFrame {
     private JProgressBar progressBar;
     private JSlider brightnessSlider;
     private JLabel brightnessValueLabel;
-    private JComboBox<String> borderColorCombo;
     private JSpinner borderThicknessSpinner;
 
     private File selectedImage;
@@ -108,17 +109,8 @@ public class FrameTvResizerUI extends JFrame {
         recipientEmailField.setFont(new Font("Monaco", Font.PLAIN, 12));
         recipientEmailField.setToolTipText("Email address to send the resized image to");
 
-        colorPickerButton = new JButton();
-        colorPickerButton.setFont(new Font("Arial", Font.PLAIN, 12));
-        colorPickerButton.setToolTipText("Click to choose background fill color");
-        updateColorPickerButton();
-        colorPickerButton.addActionListener(e -> {
-            Color chosen = JColorChooser.showDialog(this, "Choose Background Color", selectedFillColor);
-            if (chosen != null) {
-                selectedFillColor = chosen;
-                updateColorPickerButton();
-            }
-        });
+        fillColorCombo = new JComboBox<>(new String[]{"black", "white", "gray"});
+        fillColorCombo.setFont(new Font("Arial", Font.PLAIN, 12));
 
         statusLabel = new JLabel("Ready to resize images");
         statusLabel.setFont(new Font("Arial", Font.PLAIN, 11));
@@ -152,14 +144,31 @@ public class FrameTvResizerUI extends JFrame {
             brightnessValueLabel.setText((val >= 0 ? "+" : "") + val + "%");
         });
 
-        borderColorCombo = new JComboBox<>(new String[]{"None", "Black", "White"});
-        borderColorCombo.setFont(new Font("Arial", Font.PLAIN, 12));
+        borderEnabledCheck = new JCheckBox("Border");
+        borderEnabledCheck.setFont(new Font("Arial", Font.PLAIN, 12));
+
+        borderColorPickerButton = new JButton();
+        borderColorPickerButton.setFont(new Font("Arial", Font.PLAIN, 12));
+        borderColorPickerButton.setToolTipText("Click to choose border color");
+        borderColorPickerButton.setEnabled(false);
+        updateBorderColorPickerButton();
+        borderColorPickerButton.addActionListener(e -> {
+            Color chosen = JColorChooser.showDialog(this, "Choose Border Color", selectedBorderColor);
+            if (chosen != null) {
+                selectedBorderColor = chosen;
+                updateBorderColorPickerButton();
+            }
+        });
+
         borderThicknessSpinner = new JSpinner(new SpinnerNumberModel(50, 1, 500, 1));
         borderThicknessSpinner.setPreferredSize(new Dimension(70, borderThicknessSpinner.getPreferredSize().height));
         borderThicknessSpinner.setEnabled(false);
-        borderColorCombo.addActionListener(e ->
-            borderThicknessSpinner.setEnabled(!"None".equals(borderColorCombo.getSelectedItem()))
-        );
+
+        borderEnabledCheck.addActionListener(e -> {
+            boolean enabled = borderEnabledCheck.isSelected();
+            borderColorPickerButton.setEnabled(enabled);
+            borderThicknessSpinner.setEnabled(enabled);
+        });
 
         logArea = new JTextArea();
         logArea.setEditable(false);
@@ -211,7 +220,7 @@ public class FrameTvResizerUI extends JFrame {
 
         JPanel bgColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         bgColorRow.add(new JLabel("Background Color:"));
-        bgColorRow.add(colorPickerButton);
+        bgColorRow.add(fillColorCombo);
         optionsPanel.add(bgColorRow);
 
         JPanel brightnessRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
@@ -221,8 +230,8 @@ public class FrameTvResizerUI extends JFrame {
         optionsPanel.add(brightnessRow);
 
         JPanel borderRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        borderRow.add(new JLabel("Border:"));
-        borderRow.add(borderColorCombo);
+        borderRow.add(borderEnabledCheck);
+        borderRow.add(borderColorPickerButton);
         borderRow.add(new JLabel("Thickness:"));
         borderRow.add(borderThicknessSpinner);
         borderRow.add(new JLabel("px"));
@@ -325,10 +334,13 @@ public class FrameTvResizerUI extends JFrame {
 
                     String pythonScript = getPythonScriptPath();
                     String outputPath = outputPathField.getText().isEmpty() ? null : outputPathField.getText();
-                    String fillColor = String.format("#%02X%02X%02X",
-                        selectedFillColor.getRed(), selectedFillColor.getGreen(), selectedFillColor.getBlue());
+                    String fillColor = (String) fillColorCombo.getSelectedItem();
                     int brightnessVal = brightnessSlider.getValue();
-                    String borderColor = (String) borderColorCombo.getSelectedItem();
+                    boolean borderEnabled = borderEnabledCheck.isSelected();
+                    String borderColor = borderEnabled
+                        ? String.format("#%02X%02X%02X", selectedBorderColor.getRed(),
+                            selectedBorderColor.getGreen(), selectedBorderColor.getBlue())
+                        : null;
                     int borderThickness = (Integer) borderThicknessSpinner.getValue();
 
                     ProcessBuilder pb = new ProcessBuilder(
@@ -350,7 +362,7 @@ public class FrameTvResizerUI extends JFrame {
                         pb.command().add(String.format(java.util.Locale.US, "%.2f", factor));
                     }
 
-                    if (!"None".equals(borderColor) && borderThickness > 0) {
+                    if (borderColor != null && borderThickness > 0) {
                         pb.command().add("--border-color");
                         pb.command().add(borderColor.toLowerCase());
                         pb.command().add("--border-thickness");
@@ -543,11 +555,13 @@ public class FrameTvResizerUI extends JFrame {
         selectedImage = null;
         inputPathField.setText("");
         outputPathField.setText("");
-        selectedFillColor = Color.BLACK;
-        updateColorPickerButton();
+        fillColorCombo.setSelectedItem("black");
         brightnessSlider.setValue(0);
         brightnessValueLabel.setText("+0%");
-        borderColorCombo.setSelectedItem("None");
+        borderEnabledCheck.setSelected(false);
+        selectedBorderColor = Color.WHITE;
+        updateBorderColorPickerButton();
+        borderColorPickerButton.setEnabled(false);
         borderThicknessSpinner.setValue(50);
         borderThicknessSpinner.setEnabled(false);
         logArea.setText("");
@@ -581,11 +595,11 @@ public class FrameTvResizerUI extends JFrame {
         return new ImageIcon(new BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)).getImage();
     }
 
-    private void updateColorPickerButton() {
+    private void updateBorderColorPickerButton() {
         String hex = String.format("#%02X%02X%02X",
-            selectedFillColor.getRed(), selectedFillColor.getGreen(), selectedFillColor.getBlue());
-        colorPickerButton.setText(hex);
-        colorPickerButton.setIcon(createColorIcon(selectedFillColor));
+            selectedBorderColor.getRed(), selectedBorderColor.getGreen(), selectedBorderColor.getBlue());
+        borderColorPickerButton.setText(hex);
+        borderColorPickerButton.setIcon(createColorIcon(selectedBorderColor));
     }
 
     private Icon createColorIcon(Color color) {
