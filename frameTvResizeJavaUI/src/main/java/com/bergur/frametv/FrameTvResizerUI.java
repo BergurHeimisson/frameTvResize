@@ -100,7 +100,7 @@ public class FrameTvResizerUI extends JFrame {
         inputPathField.setFont(new Font("Monaco", Font.PLAIN, 12));
 
         selectButton = new JButton("Select Image");
-        selectButton.setFont(new Font("Arial", Font.BOLD, 12));
+        selectButton.setFont(new Font("Arial", Font.PLAIN, 12));
         selectButton.addActionListener(e -> selectImage());
 
         outputPathField = new JTextField();
@@ -126,7 +126,7 @@ public class FrameTvResizerUI extends JFrame {
         progressBar.setVisible(false);
 
         resizeButton = new JButton("Resize Image");
-        resizeButton.setFont(new Font("Arial", Font.BOLD, 13));
+        resizeButton.setFont(new Font("Arial", Font.PLAIN, 13));
         resizeButton.addActionListener(e -> resizeImage());
         resizeButton.setEnabled(false);
 
@@ -200,7 +200,6 @@ public class FrameTvResizerUI extends JFrame {
 
         JLabel subtitleLabel = new JLabel("Resize images to 3840×2160 (16:9)");
         subtitleLabel.setFont(new Font("Arial", Font.ITALIC, 12));
-        subtitleLabel.setForeground(Color.GRAY);
         mainPanel.add(subtitleLabel);
         mainPanel.add(Box.createVerticalStrut(20));
 
@@ -340,7 +339,6 @@ public class FrameTvResizerUI extends JFrame {
         selectButton.repaint();
         progressBar.setVisible(true);
         statusLabel.setText("Processing...");
-        statusLabel.setForeground(Color.ORANGE);
         lastConversionSuccess = false;
 
         SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
@@ -457,7 +455,6 @@ public class FrameTvResizerUI extends JFrame {
     private void sendEmailAsync(File file, String recipient) {
         appendLog("Preparing to send email to " + recipient + "...");
         statusLabel.setText("Sending email...");
-        statusLabel.setForeground(new Color(0, 80, 160));
 
         new Thread(() -> {
             try {
@@ -475,7 +472,6 @@ public class FrameTvResizerUI extends JFrame {
                 SwingUtilities.invokeLater(() -> {
                     appendLog("✗ Email failed: " + e.getMessage());
                     statusLabel.setText("Email failed");
-                    statusLabel.setForeground(Color.RED);
                 });
             }
         }, "email-sender").start();
@@ -554,7 +550,6 @@ public class FrameTvResizerUI extends JFrame {
 
         gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
         JLabel hint = new JLabel("<html><small>Use a Gmail App Password (Google Account → Security → App Passwords)</small></html>");
-        hint.setForeground(Color.GRAY);
         panel.add(hint, gbc);
 
         int result = JOptionPane.showConfirmDialog(
