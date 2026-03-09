@@ -31,7 +31,8 @@ public class FrameTvResizerUI extends JFrame {
     private JTextField inputPathField;
     private JTextField outputPathField;
     private JTextField recipientEmailField;
-    private JComboBox<String> fillColorCombo;
+    private JButton colorPickerButton;
+    private Color selectedFillColor = Color.BLACK;
     private JLabel statusLabel;
     private JButton selectButton;
     private JButton resizeButton;
@@ -107,9 +108,17 @@ public class FrameTvResizerUI extends JFrame {
         recipientEmailField.setFont(new Font("Monaco", Font.PLAIN, 12));
         recipientEmailField.setToolTipText("Email address to send the resized image to");
 
-        fillColorCombo = new JComboBox<>(new String[]{"black", "white", "gray"});
-        fillColorCombo.setFont(new Font("Arial", Font.PLAIN, 12));
-        fillColorCombo.setSelectedItem("black");
+        colorPickerButton = new JButton();
+        colorPickerButton.setFont(new Font("Arial", Font.PLAIN, 12));
+        colorPickerButton.setToolTipText("Click to choose background fill color");
+        updateColorPickerButton();
+        colorPickerButton.addActionListener(e -> {
+            Color chosen = JColorChooser.showDialog(this, "Choose Background Color", selectedFillColor);
+            if (chosen != null) {
+                selectedFillColor = chosen;
+                updateColorPickerButton();
+            }
+        });
 
         statusLabel = new JLabel("Ready to resize images");
         statusLabel.setFont(new Font("Arial", Font.PLAIN, 11));
@@ -202,7 +211,7 @@ public class FrameTvResizerUI extends JFrame {
 
         JPanel bgColorRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         bgColorRow.add(new JLabel("Background Color:"));
-        bgColorRow.add(fillColorCombo);
+        bgColorRow.add(colorPickerButton);
         optionsPanel.add(bgColorRow);
 
         JPanel brightnessRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
@@ -316,7 +325,8 @@ public class FrameTvResizerUI extends JFrame {
 
                     String pythonScript = getPythonScriptPath();
                     String outputPath = outputPathField.getText().isEmpty() ? null : outputPathField.getText();
-                    String fillColor = (String) fillColorCombo.getSelectedItem();
+                    String fillColor = String.format("#%02X%02X%02X",
+                        selectedFillColor.getRed(), selectedFillColor.getGreen(), selectedFillColor.getBlue());
                     int brightnessVal = brightnessSlider.getValue();
                     String borderColor = (String) borderColorCombo.getSelectedItem();
                     int borderThickness = (Integer) borderThicknessSpinner.getValue();
@@ -331,10 +341,8 @@ public class FrameTvResizerUI extends JFrame {
                         pb.command().add(outputPath);
                     }
 
-                    if (!"black".equals(fillColor)) {
-                        pb.command().add("--fill");
-                        pb.command().add(fillColor);
-                    }
+                    pb.command().add("--fill");
+                    pb.command().add(fillColor);
 
                     if (brightnessVal != 0) {
                         double factor = 1.0 + brightnessVal / 100.0;
@@ -535,7 +543,8 @@ public class FrameTvResizerUI extends JFrame {
         selectedImage = null;
         inputPathField.setText("");
         outputPathField.setText("");
-        fillColorCombo.setSelectedItem("black");
+        selectedFillColor = Color.BLACK;
+        updateColorPickerButton();
         brightnessSlider.setValue(0);
         brightnessValueLabel.setText("+0%");
         borderColorCombo.setSelectedItem("None");
@@ -570,6 +579,26 @@ public class FrameTvResizerUI extends JFrame {
 
     private Image createAppIcon() {
         return new ImageIcon(new BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)).getImage();
+    }
+
+    private void updateColorPickerButton() {
+        String hex = String.format("#%02X%02X%02X",
+            selectedFillColor.getRed(), selectedFillColor.getGreen(), selectedFillColor.getBlue());
+        colorPickerButton.setText(hex);
+        colorPickerButton.setIcon(createColorIcon(selectedFillColor));
+    }
+
+    private Icon createColorIcon(Color color) {
+        return new Icon() {
+            @Override public int getIconWidth() { return 16; }
+            @Override public int getIconHeight() { return 16; }
+            @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                g.setColor(color);
+                g.fillRect(x, y, 16, 16);
+                g.setColor(Color.GRAY);
+                g.drawRect(x, y, 15, 15);
+            }
+        };
     }
 
     private class ImagePreviewPanel extends JPanel implements java.beans.PropertyChangeListener {
