@@ -164,9 +164,8 @@ Examples:
     
     parser.add_argument(
         "--fill",
-        choices=["black", "white", "gray"],
         default="black",
-        help="Background fill color for padding (default: black)"
+        help="Background fill color for padding (default: black). Accepts color names (black, white, gray) or hex values (#RRGGBB)"
     )
     
     args = parser.parse_args()
