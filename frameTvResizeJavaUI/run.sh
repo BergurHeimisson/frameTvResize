@@ -19,4 +19,4 @@ if [ ! -f "$JAVA_25" ]; then
 fi
 
 echo "Starting Frame TV Resizer GUI (Java 25)..."
-"$JAVA_25" -jar "$JAR_FILE"
+"$JAVA_25" --enable-native-access=ALL-UNNAMED -jar "$JAR_FILE"

@@ -141,19 +141,19 @@ def resize_for_frame_tv(input_path: str, output_path: str = None, fill_color: st
     x_offset = (TARGET_WIDTH - new_width) // 2
     y_offset = (TARGET_HEIGHT - new_height) // 2
 
-    # Draw border as a filled rectangle before pasting the image so the border
-    # sits between the fill area and the image on all four sides uniformly.
-    if border_color and border_thickness > 0:
-        draw = ImageDraw.Draw(final_img)
-        draw.rectangle(
-            [x_offset - border_thickness, y_offset - border_thickness,
-             x_offset + new_width + border_thickness - 1,
-             y_offset + new_height + border_thickness - 1],
-            fill=border_color
-        )
-
     # Paste the resized image onto the final image
     final_img.paste(resized_img, (x_offset, y_offset))
+
+    # Draw border as four edge strips at fixed canvas positions so it always
+    # sits at the canvas boundary regardless of image aspect ratio.
+    if border_color and border_thickness > 0:
+        draw = ImageDraw.Draw(final_img)
+        t = border_thickness
+        W, H = TARGET_WIDTH, TARGET_HEIGHT
+        draw.rectangle([0, 0, W - 1, t - 1], fill=border_color)       # top
+        draw.rectangle([0, H - t, W - 1, H - 1], fill=border_color)   # bottom
+        draw.rectangle([0, 0, t - 1, H - 1], fill=border_color)       # left
+        draw.rectangle([W - t, 0, W - 1, H - 1], fill=border_color)   # right
 
     # Determine output path
     if output_path is None:
